@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Wegen Analyse - Demo</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        body { margin: 0; font-family: Arial; background: #f4f4f4; }
+        #map { height: 100vh; width: 100vw; }
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 24px;
+        }
+        .legend {
+            background: white;
+            padding: 10px;
+            line-height: 18px;
+            color: #333;
+            position: absolute;
+            bottom: 30px;
+            left: 10px;
+            z-index: 1000;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    AI Wegen Analyse - Demo Version
+</div>
+
+<div id="map"></div>
+
+<div class="legend">
+    <strong>Risico:</strong><br>
+    <span style="color: red;">●</span> Hoog<br>
+    <span style="color: orange;">●</span> Middel<br>
+    <span style="color: green;">●</span> Laag
+</div>
+
+<script>
+var map = L.map('map').setView([51.6511806, 5.2368001], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+Papa.parse('wegen.csv', {
+    download: true,
+    header: true,
+    complete: function(results) {
+        results.data.forEach(row => {
+            var straat = row.Straatnaam;
+            var plaats = row.Woonplaats;
+            var kwaliteit = row['Gestelde kwaliteit'] || 'Laag';
+            var materiaal = row.Verhardingssoort || 'Asfalt';
+            var laatsteRenovatie = row['Laatste renovatie'] || 2010;
+
+            var levensduur = materiaal === 'Asfalt' ? 15 : materiaal === 'Beton' ? 25 : 20;
+            var volgendeRenovatie = parseInt(laatsteRenovatie) + levensduur;
+
+            var url = `https://nominatim.openstreetmap.org/search?format=json&q=${straat},${plaats}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data[0]) {
+                        var lat = parseFloat(data[0].lat);
+                        var lon = parseFloat(data[0].lon);
+
+                        var color = kwaliteit === 'Hoog' ? 'red' : (kwaliteit === 'Middel' ? 'orange' : 'green');
+
+                        var marker = L.circleMarker([lat, lon], {
+                            radius: 8,
+                            color: color,
+                            fillColor: color,
+                            fillOpacity: 0.8
+                        }).addTo(map);
+
+                        marker.bindPopup(`<strong>${straat}</strong><br>
+                            Risico: ${kwaliteit}<br>
+                            Materiaal: ${materiaal}<br>
+                            Laatste renovatie: ${laatsteRenovatie}<br>
+                            Volgende onderhoud: ${volgendeRenovatie}<br>
+                            Resterende levensduur: ${volgendeRenovatie - 2024} jaar`);
+                    }
+                });
+        });
+    }
+});
+</script>
+
+</body>
+</html>
